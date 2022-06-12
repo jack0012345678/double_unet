@@ -10,10 +10,11 @@ from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 from utils import *
 from train_ori import tf_dataset
+import argparse
 
 def read_image(x):
     image = cv2.imread(x, cv2.IMREAD_COLOR)
-    image = cv2.resize(image, (512, 512), interpolation=cv2.INTER_AREA)
+    image = cv2.resize(image, (args.model_input_size, args.model_input_size), interpolation=cv2.INTER_AREA)
     image = np.clip(image - np.median(image)+127, 0, 255)
     image = image/255.0
     image = image.astype(np.float32)
@@ -63,11 +64,11 @@ def evaluate_normal(model, x_data):
         mask1 = np.concatenate([mask_to_3d(y_pred1)], axis=1)
         mask2 = np.concatenate([mask_to_3d(y_pred2)], axis=1)
         mask = mask1 + mask2
-        mask = cv2.resize(mask, (1716, 942), interpolation=cv2.INTER_AREA)
+        mask = cv2.resize(mask, args.resize_size, interpolation=cv2.INTER_AREA)
         mask[mask > 0.15] = 255
         mask[mask < 0.15] = 0
         mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
-        cv2.imwrite("./results/" + n[10:-4]+'.png', mask)
+        #cv2.imwrite("./results/" + n[10:-4]+'.png', mask)
         print("./results/" + n[10:-4]+'.png')
 
 smooth = 1.
@@ -81,14 +82,23 @@ def dice_loss(y_true, y_pred):
     return 1.0 - dice_coef(y_true, y_pred)
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(prog='predict.py', description='testing') 
+
+    parser.add_argument('--model_input_size', default=512, type=int, required=False,  help='model_input_size for testing')
+    parser.add_argument('--test_path', '-tp', default='stas/test/', type=str, required=False,  help='test_path for testing')
+    parser.add_argument('--save_path', '-sp', default='results/', type=str, required=False,  help='save_path for testing')
+    parser.add_argument('--model_path', '-mp', default='files/model_b12_stas_aug_new_final_512.h5', type=str, required=False,  help='model_path for testing')
+    parser.add_argument('--resize_size', '-resize', default=(1716, 942), type=tuple, required=False,  help='model_path for testing')
+
+    args = parser.parse_args()
     np.random.seed(42)
     tf.random.set_seed(42)
-    create_dir("results/")
+    create_dir(args.save_path)
 
-    batch_size = 2
 
-    test_path = "stas/test/"
+
+    test_path = args.test_path
     test_x = sorted(glob(os.path.join(test_path, "*.jpg")))
-    model = load_model_weight("files/model_b12_stas_aug_new_final_512.h5")
+    model = load_model_weight(args.model_path)
     #model.evaluate(test_dataset, steps=test_steps)
     evaluate_normal(model, test_x)
